@@ -164,7 +164,7 @@ void thread_imu_rw(void)
         if (dataReady())
         {
 
-            update(UPDATE_ACCEL | UPDATE_GYRO | UPDATE_COMPASS);
+            update(UPDATE_ACCEL | UPDATE_GYRO);
             printIMUData();
         }
 
@@ -177,37 +177,25 @@ void thread_imu_rw(void)
  * 
  * @return int ERRVAL
  */
-int begin(void)
-{
-
+int begin(void) {
     struct int_param_s int_param;
     int result;
-    //uint8_t buffer;
-
     hal_i2c_configX();
-
     // Place all slaves (including compass) on primary bus
-    if (mpu_set_bypass(1) != 0)
-    {
+    if (mpu_set_bypass(1) != 0) {
         printk("Slave Error\n");
     }
-
     k_msleep(10);
-
     result = mpu_init(&int_param);
-
-    if (result)
-    {
+    if (result) {
         printk("Init Fail\n");
         return result;
     }
 
-    setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL | INV_XYZ_COMPASS);
-
+    setSensors(INV_XYZ_GYRO | INV_XYZ_ACCEL);
     mySens.gSense = getGyroSens();
     mySens.aSense = getAccelSens();
     printk("gSense: %f, aSense: %f\n", mySens.gSense, mySens.aSense);
-
     //Set Sensor Config
     // Use setGyroFSR() and setAccelFSR() to configure the
     // gyroscope and accelerometer full scale ranges.
@@ -227,12 +215,6 @@ int begin(void)
     // The sample rate of the accel/gyro can be set using
     // setSampleRate. Acceptable values range from 4Hz to 1kHz
     setSampleRate(10); // Set sample rate to 10Hz
-
-    // Likewise, the compass (magnetometer) sample rate can be
-    // set using the setCompassSampleRate() function.
-    // This value can range between: 1-100Hz
-    setCompassSampleRate(10); // Set mag rate to 10H
-
     return result;
 }
 
@@ -242,30 +224,14 @@ int begin(void)
  */
 void printIMUData(void)
 {
-    // float accelX = calcAccel(ax);
-    // float accelY = calcAccel(ay);
-    // float accelZ = calcAccel(az);
-    // float gyroX = calcGyro(gx);
-    // float gyroY = calcGyro(gy);
-    // float gyroZ = calcGyro(gz);
-    // float magX = calcMag(mx);
-    // float magY = calcMag(my);
-    // float magZ = calcMag(mz);
-
     imu_accel_raw[0] = ax;
     imu_accel_raw[1] = ay;
     imu_accel_raw[2] = az;
-
     imu_gyro_raw[0] = gx;
     imu_gyro_raw[1] = gy;
     imu_gyro_raw[2] = gz;
-
     printk("Accelerometer aX: %d aY: %d aZ; %d\n", ax, ay, az);
     printk("Gyroscope gX: %d gY: %d gZ; %d\n", gx, gy, gz);
-
-    // printk("aX: %d aY: %d aZ; %d", ax, ay, az);
-    // printk("gX: %f gY: %f gZ; %f", gyroX, gyroY, gyroZ);
-    // printk("mX: %f mY: %f mZ; %f", mx, my, mz);
 }
 
 /**
@@ -285,12 +251,8 @@ int update(unsigned char sensors)
         aErr = updateAccel();
     if (sensors & UPDATE_GYRO)
         gErr = updateGyro();
-    if (sensors & UPDATE_COMPASS)
-        mErr = updateCompass();
-    if (sensors & UPDATE_TEMP)
-        tErr = updateTemperature();
 
-    return aErr | gErr | mErr | tErr;
+    return aErr | gErr;
 }
 
 /**
@@ -308,17 +270,6 @@ bool dataReady(void)
         return (intStatusReg & (1 << INT_STATUS_RAW_DATA_RDY_INT));
     }
     return false;
-}
-
-/**
- * @brief Set the Compass Sample Rate 
- * 
- * @param rate sample rate
- * @return int ERR
- */
-int setCompassSampleRate(unsigned short rate)
-{
-    return mpu_set_compass_sample_rate(rate);
 }
 
 /**
@@ -455,35 +406,6 @@ int updateGyro(void)
     gx = data[X_AXIS];
     gy = data[Y_AXIS];
     gz = data[Z_AXIS];
-    return INV_SUCCESS;
-}
-
-/**
- * @brief Update temp info
- * 
- * @return int ERR
- */
-int updateTemperature(void)
-{
-    return mpu_get_temperature(&temperature, &time);
-}
-
-/**
- * @brief Update compass info
- * 
- * @return int ERR
- */
-int updateCompass(void)
-{
-    short data[3];
-
-    if (mpu_get_compass_reg(data, &time))
-    {
-        return INV_ERROR;
-    }
-    mx = data[X_AXIS];
-    my = data[Y_AXIS];
-    mz = data[Z_AXIS];
     return INV_SUCCESS;
 }
 
