@@ -20,6 +20,10 @@
 #define SHORT_SLEEP_MS                                                                  50
 /* Set LED pins */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+int16_t imu_accel_raw[] = {0x00, 0x00, 0x00};
+int16_t imu_gyro_raw[] = {0x00, 0x00, 0x00};
+
 /* Set advertising data */
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),

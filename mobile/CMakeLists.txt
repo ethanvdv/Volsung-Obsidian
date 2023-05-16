@@ -12,4 +12,4 @@ project(mobile)
 #Add include_directories for libraries, path starts from this files location.
 include_directories(inc/ lib/)
 
-target_sources(app PRIVATE src/main.c src/mobile_connect.c src/mobile_rssi.c src/mobile_imu.c)
+target_sources(app PRIVATE src/main.c src/mobile_connect.c src/mobile_rssi.c src/mobile_imu.c lib/zephyr_i2c.c lib/inv_mpu.c lib/inv_mpu_dmp_motion_driver.c)

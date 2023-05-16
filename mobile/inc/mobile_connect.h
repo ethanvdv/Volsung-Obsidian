@@ -12,6 +12,8 @@ extern uint16_t node_rssi[];
 
 void thread_led(void);
 
+extern int16_t imu_accel_raw[], imu_gyro_raw[];
+
 void thread_ble_connect(void);
 
 #endif
