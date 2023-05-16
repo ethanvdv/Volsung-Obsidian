@@ -28,26 +28,20 @@ static const struct bt_data ad[] = {
                   0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd),
 };
 
-/* Stores the accelerometer values */
-uint16_t accelerometer_reading[] = {0x00, 0x00, 0x00};
-/* Stores the gyroscope values */
-uint16_t gyroscope_reading[] = {0x00, 0x00, 0x00};
+/* Stores the node rssi values */
+uint16_t node_rssi[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 /* Custom Service Variables */
 static struct bt_uuid_128 mobile_uuid = BT_UUID_INIT_128(
     0xd0, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
 
-static struct bt_uuid_128 accelerometer_uuid = BT_UUID_INIT_128(
-    0xd1, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
-    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
-
-static struct bt_uuid_128 gyroscope_uuid = BT_UUID_INIT_128(
+static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
     0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
 
 /**
- * @brief Callback funtion to read accelerometer.
+ * @brief Callback funtion to read RSSI buffer.
  * 
  * @param conn connection handler
  * @param attr Attribute data/user data
@@ -56,25 +50,7 @@ static struct bt_uuid_128 gyroscope_uuid = BT_UUID_INIT_128(
  * @param offset Data offset for multiple reads
  * @return ssize_t 0, to stop continous reads. 
  */
-static ssize_t read_accelerometer(struct bt_conn *conn,
-                         const struct bt_gatt_attr *attr, void *buf,
-                         uint16_t len, uint16_t offset) {
-    const int16_t *value = attr->user_data;
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value,
-                             sizeof(node_rssi));
-}
-
-/**
- * @brief Callback funtion to read gyroscope.
- * 
- * @param conn connection handler
- * @param attr Attribute data/user data
- * @param buf Buffer storing the value
- * @param len Length of data
- * @param offset Data offset for multiple reads
- * @return ssize_t 0, to stop continous reads. 
- */
-static ssize_t read_gyroscope(struct bt_conn *conn,
+static ssize_t read_rssi(struct bt_conn *conn,
                          const struct bt_gatt_attr *attr, void *buf,
                          uint16_t len, uint16_t offset) {
     const int16_t *value = attr->user_data;
@@ -85,14 +61,10 @@ static ssize_t read_gyroscope(struct bt_conn *conn,
 //Helper Macro to define BLE Gatt Attributes based on CX UUIDS
 BT_GATT_SERVICE_DEFINE(mobile_svc,
                        BT_GATT_PRIMARY_SERVICE(&mobile_uuid),
-                       BT_GATT_CHARACTERISTIC(&accelerometer_uuid.uuid,
+                       BT_GATT_CHARACTERISTIC(&node_rssi_uuid.uuid,
                                               BT_GATT_CHRC_READ,
                                               BT_GATT_PERM_READ,
-                                              read_accelerometer, NULL, &accelerometer_reading),
-                       BT_GATT_CHARACTERISTIC(&gyroscope_uuid.uuid,
-                                              BT_GATT_CHRC_READ,
-                                              BT_GATT_PERM_READ,
-                                              read_gyroscope, NULL, &gyroscope_reading),
+                                              read_rssi, NULL, &node_rssi),
 );
 
 /**

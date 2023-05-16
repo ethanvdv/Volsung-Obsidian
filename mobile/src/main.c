@@ -25,6 +25,7 @@
 
 #include "mobile_connect.h"
 #include "mobile_rssi.h"
+#include "mobile_imu.h"
 
 /*
     west build -p -b thingy52_nrf52832 && west flash -r jlink
@@ -39,3 +40,5 @@ K_THREAD_DEFINE(ble_send, STACK_SIZE_BLE_SEND, thread_ble_send, NULL, NULL, NULL
 K_THREAD_DEFINE(led_blink, THREAD_LED_THREAD_STACK, thread_led, NULL, NULL, NULL, THREAD_PRIORITY_LED_THREAD, 0, 50);
 /* Thingy RSSI scanner */
 K_THREAD_DEFINE(ble_connect, THREAD_BLE_CONNECT_STACK, thread_ble_connect, NULL, NULL, NULL, THREAD_PRIORITY_BLE_CONNECT_THREAD, 0, 0);
+/* Thingy IMU reader */
+K_THREAD_DEFINE(ble_imu, THREAD_IMU_RW_STACK, thread_imu_rw, NULL, NULL, NULL, THREAD_PRIORITY_IMU, 0, 100);

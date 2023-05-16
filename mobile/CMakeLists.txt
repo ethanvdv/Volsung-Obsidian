@@ -10,6 +10,6 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(mobile)
 
 #Add include_directories for libraries, path starts from this files location.
-include_directories(inc/)
+include_directories(inc/ lib/)
 
-target_sources(app PRIVATE src/main.c src/mobile_connect.c src/mobile_rssi.c)
+target_sources(app PRIVATE src/main.c src/mobile_connect.c src/mobile_rssi.c src/mobile_imu.c)

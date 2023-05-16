@@ -103,7 +103,7 @@ void thread_ble_send(void) {
     int total = 0, missed = 0;
     while (1) {
         k_sem_take(&scanDoneSem, K_FOREVER);
-        printk("Scan done\n");
+        // printk("Scan done\n");
         ++total;
         for (int i = 0; i < STATIC_NODE_NUM; ++i) {
             // Wait max 30ms before deciding that nodes ad was missed
@@ -113,13 +113,13 @@ void thread_ble_send(void) {
                     ++missed;
                 }
                 // sem_take timed out, data was therefore missed
-                printk("Node %d ad was missed\n", i + 1);
+                // printk("Node %d ad was missed\n", i + 1);
                 node_rssi[i] = 0;
             }
             else {
                 //Update GATT Characteristic Buffers
                 node_rssi[i] = nodeData[i].rssi;
-                printk("rssi: %d\n", node_rssi[i]);
+                // printk("rssi: %d\n", node_rssi[i]);
             }
         }
     }
