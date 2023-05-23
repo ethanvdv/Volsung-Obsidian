@@ -40,12 +40,16 @@ static struct bt_uuid_128 mobile_uuid = BT_UUID_INIT_128(
     0xd0, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
 
-static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
+static struct bt_uuid_128 imu_accel_uuid = BT_UUID_INIT_128(
+    0xd1, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
+    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
+
+static struct bt_uuid_128 imu_gyro_uuid = BT_UUID_INIT_128(
     0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
 
 /**
- * @brief Callback funtion to read RSSI buffer.
+ * @brief Callback funtion to read sensor array data
  * 
  * @param conn connection handler
  * @param attr Attribute data/user data
@@ -54,21 +58,26 @@ static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
  * @param offset Data offset for multiple reads
  * @return ssize_t 0, to stop continous reads. 
  */
-static ssize_t read_rssi(struct bt_conn *conn,
-                         const struct bt_gatt_attr *attr, void *buf,
-                         uint16_t len, uint16_t offset) {
+static ssize_t read_sensor_array(struct bt_conn *conn,
+                                 const struct bt_gatt_attr *attr, void *buf,
+                                 uint16_t len, uint16_t offset) {
     const int16_t *value = attr->user_data;
     return bt_gatt_attr_read(conn, attr, buf, len, offset, value,
-                             sizeof(node_rssi));
+                             sizeof(imu_accel_raw));
 }
 
 //Helper Macro to define BLE Gatt Attributes based on CX UUIDS
 BT_GATT_SERVICE_DEFINE(mobile_svc,
                        BT_GATT_PRIMARY_SERVICE(&mobile_uuid),
-                       BT_GATT_CHARACTERISTIC(&node_rssi_uuid.uuid,
+                       BT_GATT_CHARACTERISTIC(&imu_accel_uuid.uuid,
                                               BT_GATT_CHRC_READ,
                                               BT_GATT_PERM_READ,
-                                              read_rssi, NULL, &node_rssi),
+                                              read_sensor_array, NULL, &imu_accel_raw),
+
+                       BT_GATT_CHARACTERISTIC(&imu_gyro_uuid.uuid,
+                                              BT_GATT_CHRC_READ,
+                                              BT_GATT_PERM_READ,
+                                              read_sensor_array, NULL, &imu_gyro_raw),
 );
 
 /**

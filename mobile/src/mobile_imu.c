@@ -23,6 +23,14 @@ LOG_MODULE_REGISTER(IMU_Driver, LOG_LEVEL_ERR);
 #define USER_CTRL_AD 0x6A
 #define INT_BYPASS_CONFIG_AD 0x37
 
+#define ACCEL_MODIFIER_X 50
+#define ACCEL_MODIFIER_Y 70
+#define ACCEL_MODIFIER_Z 16550
+
+#define GYRO_MODIFIER_X 5
+#define GYRO_MODIFIER_Y 16
+#define GYRO_MODIFIER_Z 26
+
 //MPU9250 is connected on i2c0 bus
 #define I2C0 DT_LABEL(DT_NODELABEL(i2c0))
 
@@ -224,14 +232,14 @@ int begin(void) {
  */
 void printIMUData(void)
 {
-    imu_accel_raw[0] = ax;
-    imu_accel_raw[1] = ay;
-    imu_accel_raw[2] = az;
-    imu_gyro_raw[0] = gx;
-    imu_gyro_raw[1] = gy;
-    imu_gyro_raw[2] = gz;
-    printk("Accelerometer aX: %d aY: %d aZ; %d\n", ax, ay, az);
-    printk("Gyroscope gX: %d gY: %d gZ; %d\n", gx, gy, gz);
+    imu_accel_raw[0] = ax + ACCEL_MODIFIER_X;
+    imu_accel_raw[1] = ay + ACCEL_MODIFIER_Y;
+    imu_accel_raw[2] = az + ACCEL_MODIFIER_Z;
+    imu_gyro_raw[0] = gx + GYRO_MODIFIER_X;
+    imu_gyro_raw[1] = gy + GYRO_MODIFIER_Y;
+    imu_gyro_raw[2] = gz + GYRO_MODIFIER_Z;
+    printk("Accelerometer aX: %d aY: %d aZ; %d\n", imu_accel_raw[0], imu_accel_raw[1], imu_accel_raw[2]);
+    printk("Gyroscope gX: %d gY: %d gZ; %d\n", imu_gyro_raw[0], imu_gyro_raw[1], imu_gyro_raw[2]);
 }
 
 /**
@@ -240,18 +248,13 @@ void printIMUData(void)
  * @param sensors sensors to select
  * @return int ERRVAL
  */
-int update(unsigned char sensors)
-{
+int update(unsigned char sensors) {
     int aErr = INV_SUCCESS;
     int gErr = INV_SUCCESS;
-    int mErr = INV_SUCCESS;
-    int tErr = INV_SUCCESS;
-
     if (sensors & UPDATE_ACCEL)
         aErr = updateAccel();
     if (sensors & UPDATE_GYRO)
         gErr = updateGyro();
-
     return aErr | gErr;
 }
 
