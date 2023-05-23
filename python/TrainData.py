@@ -79,12 +79,12 @@ def read_serial(ser):
     if len(result) > 1:
         values = result[1].split(b'~')
         output = values[0].decode('ascii')
-        nodes = values[1].decode('ascii')
+        # nodes = values[1].decode('ascii')
         output.split(',')
-        nodes.split(',')
-        values = nodes.split('#')[0]
+        # nodes.split(',')
+        # values = nodes.split('#')[0]
 
-        return output, values
+        return output
     
 
 
@@ -103,27 +103,24 @@ count = 0
 start = time.time()
 notdone = 1
 while(notdone):
-    print("Enter X:")
-    x = input()
-    print("Enter Y:")
-    y = input()
+    print("Activity:")
+    activity = input()
     while(count < int(samples)):
         try:
-            result, nodes = read_serial(ser)
-            if (result != None) and (nodes != None):
+            result = read_serial(ser)
+            if (result != None):
                 #valid data
-                rssi = result.split(',')
-                rssi_new = get_rssi(rssi, nodes)
-                nodes = replace_toString(nodes)
-                if fast == 'n':
+                data = result.split(',')
+                # data_new = get_data(data)
+                # if fast == 'n':
                     #if here, uploads to dash
-                    upload_to_dashboard(str(rssi_new), str(nodes),str([x,y]))
-
-                row.append(rssi_new)
-                row.append([x,y])
-                dataset.append(row)
-                row = []
-                count = count + 1
+                    # upload_to_dashboard(str(data_new), str(activity))
+                print(data)
+                # row.append(data_new)
+                # row.append([x,y])
+                # dataset.append(row)
+                # row = []
+                # count = count + 1
             
                 if np.mod(count,50) == 0:
                     print(count)
@@ -139,7 +136,7 @@ while(notdone):
     count = 0
     
 header = []
-header.append("RSSI")
+header.append("AccelerationData")
 header.append("Position")
 
 

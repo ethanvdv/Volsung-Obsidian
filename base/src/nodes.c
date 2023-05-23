@@ -23,10 +23,8 @@ int active_nodes[12] = {
 
 void print_activenodes(int16_t rx_rssi[]){
 	extern int active_nodes[];
-	printk("^%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d~%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d#", rx_rssi[0], rx_rssi[1], rx_rssi[2], rx_rssi[3],  
-	rx_rssi[4], rx_rssi[5], rx_rssi[6], rx_rssi[7], rx_rssi[8], rx_rssi[9], rx_rssi[10], rx_rssi[11], active_nodes[0], active_nodes[1], 
-		active_nodes[2], active_nodes[3], active_nodes[4], active_nodes[5],  
-		active_nodes[6], active_nodes[7], active_nodes[8], active_nodes[9], active_nodes[10], active_nodes[11]);
+	printk("^%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d~", rx_rssi[0], rx_rssi[1], rx_rssi[2], rx_rssi[3],  
+	rx_rssi[4], rx_rssi[5], rx_rssi[6], rx_rssi[7], rx_rssi[8], rx_rssi[9], rx_rssi[10], rx_rssi[11]);
 	// printk("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", active_nodes[0], active_nodes[1], 
 	// 	active_nodes[2], active_nodes[3], active_nodes[4], active_nodes[5],  
 	// 	active_nodes[6], active_nodes[7], active_nodes[8], active_nodes[9], active_nodes[10], active_nodes[11]);
