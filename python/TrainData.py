@@ -5,11 +5,11 @@ import time
 import numpy as np
 import tago
 
-#number of samples
+# #number of samples
 samples = sys.argv[1]
 
-#upload to dash?
-fast = sys.argv[2]
+# #upload to dash?
+# fast = sys.argv[2]
 
 #training data key
 mydevice = tago.Device('6a647e83-6a79-4b60-8b56-d17c32f75c55')
@@ -103,8 +103,8 @@ count = 0
 start = time.time()
 notdone = 1
 while(notdone):
-    print("Activity:")
-    activity = input()
+    # print("Activity:")
+    # activity = input()
     while(count < int(samples)):
         try:
             result = read_serial(ser)
@@ -122,18 +122,18 @@ while(notdone):
                 # row = []
                 # count = count + 1
             
-                if np.mod(count,50) == 0:
-                    print(count)
+                # if np.mod(count,50) == 0:
+                #     print(count)
                     #sanity print
                         
         except TypeError:
             pass
       
-    print("Done Training?")
-    donetrain = input()
-    if donetrain == 'y':
-        notdone = 0
-    count = 0
+    # print("Done Training?")
+    # donetrain = input()
+    # if donetrain == 'y':
+    #     notdone = 0
+    # count = 0
     
 header = []
 header.append("AccelerationData")

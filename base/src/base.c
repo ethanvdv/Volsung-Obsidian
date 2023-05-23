@@ -24,6 +24,7 @@ static struct bt_conn *default_conn;
 /* Bluetooth connected flag */
 bool ble_connected;
 
+
 /* Buffer size of UUID array */
 #define UUID_BUFFER_SIZE 16
 
@@ -37,10 +38,25 @@ bool ble_connected;
 uint16_t mobile_uuid[] = {0xd0, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
                           0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd};
 
-/* Mobile device's node rssi characteristic uuid */
-static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
+// /* Mobile device's node rssi characteristic uuid */
+// static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
+//     0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
+//     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
+
+// /* Mobile device's node rssi characteristic uuid */
+// static struct bt_uuid_128 node_rssi_uuid = BT_UUID_INIT_128(
+//     0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
+//     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
+
+
+static struct bt_uuid_128 imu_accel_uuid = BT_UUID_INIT_128(
+    0xd1, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
+    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
+
+static struct bt_uuid_128 imu_gyro_uuid = BT_UUID_INIT_128(
     0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
     0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
+
 
 /* Parse device's bluetooth data and user data and attempt to connect to device */
 static bool parse_device(struct bt_data *data, void *user_data);
@@ -51,8 +67,11 @@ static void start_scan(void);
 /* RSSI RX BUFFER */
 int16_t rx_rssi[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-/* RSSI RX BUFFER */
-int16_t rx_mac[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+int16_t rx_accel[] = {0x00, 0x00, 0x00};
+
+int16_t rx_gyro[] = {0x00, 0x00, 0x00};
+
+
 
 /**
  * @brief Scans for connectable events
@@ -142,12 +161,32 @@ static void start_scan(void) {
  * 
  * @returns : 0 on success
  */
-uint8_t read_rssi(struct bt_conn *conn, uint8_t err,
+uint8_t read_accel(struct bt_conn *conn, uint8_t err,
                               struct bt_gatt_read_params *params,
                               const void *data, uint16_t length) {
-    memcpy(&rx_rssi, data, sizeof(rx_rssi));
+    memcpy(&rx_accel, data, sizeof(rx_accel));
     return 0;
 }
+
+
+/**
+ * @brief read rssi values and copy them to rx_rssi buffer
+ * 
+ * @param conn : the bluetooth connection
+ * @param err : connection err value
+ * @param params : gatt read parameters
+ * @param data : the connection data
+ * @param length : length of connection data
+ * 
+ * @returns : 0 on success
+ */
+uint8_t read_gyro(struct bt_conn *conn, uint8_t err,
+                              struct bt_gatt_read_params *params,
+                              const void *data, uint16_t length) {
+    memcpy(&rx_gyro, data, sizeof(rx_gyro));
+    return 0;
+}
+
 
 /**
  * @brief handler operation after connecting to the mobile device
@@ -204,17 +243,27 @@ static struct bt_conn_cb conn_callbacks = {
  * @brief Thread for reading rssi values from mobile device
  */
 void thread_ble_read_out(void) {
-    static struct bt_gatt_read_params read_params_rssi = {
-        .func = read_rssi,
+    static struct bt_gatt_read_params read_params_accel = {
+        .func = read_accel,
         .handle_count = 0,
-        .by_uuid.uuid = &node_rssi_uuid.uuid,
+        .by_uuid.uuid = &imu_accel_uuid.uuid,
+        .by_uuid.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE,
+        .by_uuid.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE,
+    };
+    static struct bt_gatt_read_params read_params_gyro = {
+        .func = read_gyro,
+        .handle_count = 0,
+        .by_uuid.uuid = &imu_gyro_uuid.uuid,
         .by_uuid.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE,
         .by_uuid.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE,
     };
     while (1) {
         if (ble_connected) {
-            bt_gatt_read(default_conn, &read_params_rssi);
-            print_activenodes(rx_rssi);  
+            bt_gatt_read(default_conn, &read_params_accel);
+            bt_gatt_read(default_conn, &read_params_gyro);
+
+            printk("^%d,%d,%d,%d,%d,%d~", rx_accel[0], rx_accel[1], rx_accel[2], rx_gyro[0],rx_gyro[1], rx_gyro[2]);
+            // print_activenodes(rx_rssi);  
         }
         k_msleep(100);
     }
