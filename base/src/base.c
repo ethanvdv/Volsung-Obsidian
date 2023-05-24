@@ -18,11 +18,23 @@
 
 #include "base.h"
 
+char* target_device_names[] = {
+    "62:8A:FA:08:AC:F3 (random)",
+    "79:D3:8C:F0:D2:29 (random)",
+};
+
 /* Bluetooth connection default */
 static struct bt_conn *default_conn;
 
+
+/* Bluetooth connection default */
+static struct bt_conn *default_conn2;
+
 /* Bluetooth connected flag */
 bool ble_connected;
+
+/* Bluetooth connected flag */
+bool ble_connected2;
 
 
 /* Buffer size of UUID array */
@@ -71,6 +83,10 @@ int16_t rx_accel[] = {0x00, 0x00, 0x00};
 
 int16_t rx_gyro[] = {0x00, 0x00, 0x00};
 
+int16_t rx_accel2[] = {0x00, 0x00, 0x00};
+
+int16_t rx_gyro2[] = {0x00, 0x00, 0x00};
+
 
 
 /**
@@ -83,9 +99,10 @@ int16_t rx_gyro[] = {0x00, 0x00, 0x00};
  */
 static void scan_cb(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type,
 		    struct net_buf_simple *buf) {
-	if (default_conn) {
-        return;
-    }
+	// if (default_conn) {
+    //     return;
+    // }
+
     if (adv_type == BT_GAP_ADV_TYPE_ADV_IND ||
         adv_type == BT_GAP_ADV_TYPE_ADV_DIRECT_IND) {
         bt_data_parse(buf, parse_device, (void *)addr);
@@ -101,38 +118,106 @@ static void scan_cb(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type,
  * @returns : true on success, false otherwise
  */
 static bool parse_device(struct bt_data *data, void *user_data) {
-    bt_addr_le_t *addr = user_data;
-    int i;
-    int matchedCount = 0;
 
-    if (data->type == BT_DATA_UUID128_ALL) {
-        uint16_t temp = 0;
-        for (i = 0; i < data->data_len; i++) {
-            temp = data->data[i];
-            if (temp == mobile_uuid[i]) {
-                matchedCount++;
-            }
+    char addr_str[BT_ADDR_LE_STR_LEN];
+    bt_addr_le_t *addr = user_data;
+	int err;
+
+	// if (default_conn) {
+	// 	return;
+	// }
+
+	bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
+    printk("Device found: %s \n", addr_str);
+    // char* reduced_address = strtok(addr_str, " ");
+    if (strcmp(addr_str, target_device_names[0]) == 0) {
+        int err = bt_le_scan_stop();
+        if (err) {
+            printk("scan stop failed (err %d)\n", err);
+            start_scan();
+            return true;
         }
-        if (matchedCount == UUID_BUFFER_SIZE) {
-            printk("Mobile UUID Found, attempting to connect\n");
-            int err = bt_le_scan_stop();
-            k_msleep(10);
-            if (err) {
-                printk("Stop LE scan failed (err %d)\n", err);
-                return true;
-            }
-            struct bt_le_conn_param *param = BT_LE_CONN_PARAM_DEFAULT;
-            err = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN,
-                                    param, &default_conn);
-            if (err) {
-                printk("Create conn failed (err %d)\n", err);
-                start_scan();
-            }
-            return false;
+        k_msleep(10);
+
+        printk("here3");
+        struct bt_le_conn_param *param = BT_LE_CONN_PARAM_DEFAULT;
+        err = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN,
+                                            param, &default_conn);
+        if (err) {
+            printk("Create conn failed (err %d)\n", err);
+            start_scan();
         }
+        if (!ble_connected2){
+            start_scan();
+        }
+        return false;
+
+    }
+    if (strcmp(addr_str, target_device_names[1]) == 0) {
+        printk("here4");
+        int err = bt_le_scan_stop();
+        if (err) {
+            printk("scan stop failed (err %d)\n", err);
+            start_scan();
+            return true;
+        }
+        k_msleep(10);
+        struct bt_le_conn_param *param = BT_LE_CONN_PARAM_DEFAULT;
+        err = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN,
+                                            param, &default_conn2);
+        if (err) {
+            printk("Create conn failed (err %d)\n", err);
+            start_scan();
+        }
+        if (!ble_connected){
+            start_scan();
+        }
+        return false;
+
     }
     return true;
 }
+
+
+
+
+    // bt_addr_le_t *addr = user_data;
+    // int i;
+    // int matchedCount = 0;
+
+    // if (data->type == BT_DATA_UUID128_ALL) {
+    //     uint16_t temp = 0;
+    //     for (i = 0; i < data->data_len; i++) {
+    //         temp = data->data[i];
+    //         if (temp == mobile_uuid[i]) {
+    //             matchedCount++;
+    //         }
+    //     }
+    //     if (matchedCount == UUID_BUFFER_SIZE) {
+    //         if (!ble_connected){
+    //             printk("Mobile UUID Found, attempting to connect\n");
+    //             // int err = bt_le_scan_stop();
+    //             // k_msleep(10);
+    //             // if (err) {
+    //             //     printk("Stop LE scan failed (err %d)\n", err);
+    //             //     return true;
+    //             // }
+    //             struct bt_le_conn_param *param = BT_LE_CONN_PARAM_DEFAULT;
+    //             err = bt_conn_le_create(addr, BT_CONN_LE_CREATE_CONN,
+    //                                     param, &default_conn);
+    //             if (err) {
+    //                 printk("Create conn failed (err %d)\n", err);
+    //                 start_scan();
+    //             }
+    //             return false;
+
+            
+    //         }
+            
+    //     }
+    // }
+//     return true;
+// }
 
 
 
@@ -187,6 +272,42 @@ uint8_t read_gyro(struct bt_conn *conn, uint8_t err,
     return 0;
 }
 
+/**
+ * @brief read rssi values and copy them to rx_rssi buffer
+ * 
+ * @param conn : the bluetooth connection
+ * @param err : connection err value
+ * @param params : gatt read parameters
+ * @param data : the connection data
+ * @param length : length of connection data
+ * 
+ * @returns : 0 on success
+ */
+uint8_t read_accel2(struct bt_conn *conn, uint8_t err,
+                              struct bt_gatt_read_params *params,
+                              const void *data, uint16_t length) {
+    memcpy(&rx_accel2, data, sizeof(rx_accel2));
+    return 0;
+}
+
+
+/**
+ * @brief read rssi values and copy them to rx_rssi buffer
+ * 
+ * @param conn : the bluetooth connection
+ * @param err : connection err value
+ * @param params : gatt read parameters
+ * @param data : the connection data
+ * @param length : length of connection data
+ * 
+ * @returns : 0 on success
+ */
+uint8_t read_gyro2(struct bt_conn *conn, uint8_t err,
+                              struct bt_gatt_read_params *params,
+                              const void *data, uint16_t length) {
+    memcpy(&rx_gyro2, data, sizeof(rx_gyro2));
+    return 0;
+}
 
 /**
  * @brief handler operation after connecting to the mobile device
@@ -195,20 +316,43 @@ uint8_t read_gyro(struct bt_conn *conn, uint8_t err,
  * @param err : connection error
  */
 static void connected(struct bt_conn *conn, uint8_t err) {
-	char addr[BT_ADDR_LE_STR_LEN];
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	if (err) {
-		printk("Failed to connect to %s (%u)\n", addr, err);
-		bt_conn_unref(default_conn);
-		default_conn = NULL;
-		start_scan();
-		return;
-	}
-	if (conn != default_conn) {
-		return;
-	}
-	printk("Connected: %s\n", addr);
-    ble_connected = true;
+    if (conn == default_conn){
+        printk("here1\n");
+        char addr[BT_ADDR_LE_STR_LEN];
+        bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+        if (err) {
+            printk("Failed to connect to %s (%u)\n", addr, err);
+            bt_conn_unref(default_conn);
+            default_conn = NULL;
+            start_scan();
+            return;
+        }
+        printk("Connected device 1: %s\n", addr);
+        ble_connected = true;
+    }
+	 if (conn == default_conn2){
+        printk("here2");
+        char addr[BT_ADDR_LE_STR_LEN];
+        bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+        if (err) {
+            printk("Failed to connect to %s (%u)\n", addr, err);
+            bt_conn_unref(default_conn);
+            default_conn = NULL;
+            start_scan();
+            return;
+        }
+        printk("Connected device 2: %s\n", addr);
+        ble_connected2 = true;
+    }
+    printk("here1");
+    // if (ble_connected == false){
+    if ((conn != default_conn) && (conn != default_conn2)) {
+        return;
+    }
+    // printk("Connected: %s\n", addr);
+    // ble_connected = true;
+    // // }
+	
 }
 
 /**
@@ -222,12 +366,23 @@ static void disconnected(struct bt_conn *conn, uint8_t reason) {
 	if (conn != default_conn) {
 		return;
 	}
-	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	printk("Disconnected: %s (reason 0x%02x)\n", addr, reason);
-	bt_conn_unref(default_conn);
-	default_conn = NULL;
-    ble_connected = false;
-	start_scan();
+    if (conn == default_conn) {
+		bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+        printk("Disconnected device 1: %s (reason 0x%02x)\n", addr, reason);
+        bt_conn_unref(default_conn);
+        default_conn = NULL;
+        ble_connected = false;
+        start_scan();
+	}
+    if (conn == default_conn2) {
+		bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+        printk("Disconnected device 2: %s (reason 0x%02x)\n", addr, reason);
+        bt_conn_unref(default_conn2);
+        default_conn2 = NULL;
+        ble_connected = false;
+        start_scan();
+	}
+	
 }
 
 /**
@@ -257,12 +412,31 @@ void thread_ble_read_out(void) {
         .by_uuid.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE,
         .by_uuid.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE,
     };
+    static struct bt_gatt_read_params read_params_accel2 = {
+        .func = read_accel2,
+        .handle_count = 0,
+        .by_uuid.uuid = &imu_accel_uuid.uuid,
+        .by_uuid.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE,
+        .by_uuid.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE,
+    };
+    static struct bt_gatt_read_params read_params_gyro2 = {
+        .func = read_gyro2,
+        .handle_count = 0,
+        .by_uuid.uuid = &imu_gyro_uuid.uuid,
+        .by_uuid.start_handle = BT_ATT_FIRST_ATTRIBUTE_HANDLE,
+        .by_uuid.end_handle = BT_ATT_LAST_ATTRIBUTE_HANDLE,
+    };
     while (1) {
-        if (ble_connected) {
+        if ((ble_connected) && (ble_connected2)){
             bt_gatt_read(default_conn, &read_params_accel);
             bt_gatt_read(default_conn, &read_params_gyro);
 
-            printk("^%d,%d,%d,%d,%d,%d~", rx_accel[0], rx_accel[1], rx_accel[2], rx_gyro[0],rx_gyro[1], rx_gyro[2]);
+            bt_gatt_read(default_conn2, &read_params_accel2);
+            bt_gatt_read(default_conn2, &read_params_gyro2);
+
+            printk("^%d,%d,%d,%d,%d,%d?%d,%d,%d,%d,%d,%d~", rx_accel[0], rx_accel[1], rx_accel[2], rx_gyro[0], rx_gyro[1], rx_gyro[2],
+            rx_accel2[0], rx_accel2[1], rx_accel2[2], rx_gyro2[0], rx_gyro2[1], rx_gyro2[2]);
+            
             // print_activenodes(rx_rssi);  
         }
         k_msleep(100);
@@ -277,6 +451,7 @@ void thread_ble_base(void) {
     int err;
     err = bt_enable(NULL);
     default_conn = NULL;
+    default_conn2 = NULL;
     if (err) {
         printk("Bluetooth init failed (err %d)\n", err);
         return;
@@ -295,6 +470,7 @@ void thread_ble_base(void) {
  */
 void thread_ble_led(void) {
     ble_connected = false;
+    ble_connected2 = false;
     bool led_is_on = true;
     gpio_pin_configure(device_get_binding(LED0), PIN, GPIO_OUTPUT_ACTIVE | FLAGS);
     while (1) {
