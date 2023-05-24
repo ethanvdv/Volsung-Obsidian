@@ -10,7 +10,6 @@
 #include <bluetooth/hci.h>
 #include <device.h>
 #include <drivers/gpio.h>
-#include <zephyr/drivers/sensor.h>
 #include <drivers/sensor.h>
 #include <math.h>
 #include <shell/shell.h>
