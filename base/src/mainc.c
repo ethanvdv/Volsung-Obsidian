@@ -10,6 +10,7 @@
 #include <bluetooth/hci.h>
 #include <device.h>
 #include <drivers/gpio.h>
+#include <zephyr/drivers/sensor.h>
 #include <drivers/sensor.h>
 #include <math.h>
 #include <shell/shell.h>
@@ -79,30 +80,30 @@ static void fetch_and_display(const struct device *sensor) {
                 z_count++;
             }
         }
-        uint8_t x_buff[4], y_buff[4], z_buff[4];
-        memcpy(x_buff, &x_gyro, sizeof(float));
-        memcpy(y_buff, &y_gyro, sizeof(float));
-        memcpy(z_buff, &z_gyro, sizeof(float));
+        uint8_t x_buff1[4], y_buff1[4], z_buff1[4];
+        memcpy(x_buff1, &x_gyro, sizeof(float));
+        memcpy(y_buff1, &y_gyro, sizeof(float));
+        memcpy(z_buff1, &z_gyro, sizeof(float));
         for (int i = 0; i < 4; i++) {
-            packetBuffer[i + 14] = x_buff[i];
+            packetBuffer[i + 14] = x_buff1[i];
         }
         for (int i = 0; i < 4; i++) {
-            packetBuffer[i + 18] = y_buff[i];
+            packetBuffer[i + 18] = y_buff1[i];
         }
         for (int i = 0; i < 4; i++) {
-            packetBuffer[i + 22] = z_buff[i];
+            packetBuffer[i + 22] = z_buff1[i];
         }
         int x_count = 0;
         int y_count = 0;
         int z_count = 0;
         for (int i = 0; i < 4; i++) {
-            if (packetBuffer[i+12] == x_buff[i]) {
+            if (packetBuffer[i+12] == x_buff1[i]) {
                 x_count++;
             }
-            if (packetBuffer[i + 16] == y_buff[i]) {
+            if (packetBuffer[i + 16] == y_buff1[i]) {
                 y_count++;
             }
-            if (packetBuffer[i + 20] == z_buff[i]) {
+            if (packetBuffer[i + 20] == z_buff1[i]) {
                 z_count++;
             }
         }
@@ -216,13 +217,38 @@ void bluetooth_str_to_broadcast() {
 void main(void) {
 
     /** Try to bind to the accelerometor **/
-    const struct device *sensor =
-        device_get_binding(DT_LABEL(DT_INST(0, st_lis2dh)));
+    // const struct device *sensor =
+    //     device_get_binding(DT_LABEL(DT_INST(0, st_lis2dh)));
+    
+	const struct device *const sensor = DEVICE_DT_GET_ONE(st_lis2dh);
 
     if (sensor == NULL) {
         printf("Could not get %s device\n", DT_LABEL(DT_INST(0, st_lis2dh)));
         return;
     }
+
+	// Set sensor values
+	struct sensor_value odr_attr;
+	odr_attr.val1 = 104;
+	odr_attr.val2 = 0;
+	if (!device_is_ready(sensor)) {
+		printk("sensor: device not ready.\n");
+		return;
+	}
+
+	if (sensor_attr_set(sensor, SENSOR_CHAN_ACCEL_XYZ,
+			SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) 
+	{
+		printk("Cannot set sampling frequency for accelerometer.\n");
+		return;
+	}
+
+	if (sensor_attr_set(sensor, SENSOR_CHAN_GYRO_XYZ,
+				SENSOR_ATTR_SAMPLING_FREQUENCY, &odr_attr) < 0) {
+		printk("Cannot set sampling frequency for gyro.\n");
+		return;
+	}
+
 
     int err;
 
@@ -233,44 +259,45 @@ void main(void) {
         return;
     }
 
-#if CONFIG_LIS2DH_TRIGGER
-    {
-        struct sensor_trigger trig;
-        int rc;
-
-        trig.type = SENSOR_TRIG_DATA_READY;
-        trig.chan = SENSOR_CHAN_ACCEL_XYZ;
-
-        if (IS_ENABLED(CONFIG_LIS2DH_ODR_RUNTIME)) {
-            struct sensor_value odr = {
-                .val1 = 1,
-            };
-
-            rc = sensor_attr_set(
-                sensor, trig.chan, SENSOR_ATTR_SAMPLING_FREQUENCY, &odr);
-            if (rc != 0) {
-                printf("Failed to set odr: %d\n", rc);
-                return;
-            }
-            printf("Sampling at %u Hz\n", odr.val1);
-        }
-
-        rc = sensor_trigger_set(sensor, &trig, trigger_handler);
-        if (rc != 0) {
-            printf("Failed to set trigger: %d\n", rc);
-            return;
-        }
-
-        printf("Waiting for triggers\n");
-        while (true) {
-            k_sleep(K_MSEC(2000));
-        }
-    }
-#else /* CONFIG_LIS2DH_TRIGGER */
     printf("Polling at 0.5 Hz\n");
     while (true) {
         fetch_and_display(sensor);
         k_sleep(K_MSEC(2000));
     }
-#endif /* CONFIG_LIS2DH_TRIGGER */
+
 }
+
+// #if CONFIG_LIS2DH_TRIGGER
+//     {
+//         struct sensor_trigger trig;
+//         int rc;
+
+//         trig.type = SENSOR_TRIG_DATA_READY;
+//         trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+
+//         if (IS_ENABLED(CONFIG_LIS2DH_ODR_RUNTIME)) {
+//             struct sensor_value odr = {
+//                 .val1 = 1,
+//             };
+
+//             rc = sensor_attr_set(
+//                 sensor, trig.chan, SENSOR_ATTR_SAMPLING_FREQUENCY, &odr);
+//             if (rc != 0) {
+//                 printf("Failed to set odr: %d\n", rc);
+//                 return;
+//             }
+//             printf("Sampling at %u Hz\n", odr.val1);
+//         }
+
+//         rc = sensor_trigger_set(sensor, &trig, trigger_handler);
+//         if (rc != 0) {
+//             printf("Failed to set trigger: %d\n", rc);
+//             return;
+//         }
+
+//         printf("Waiting for triggers\n");
+//         while (true) {
+//             k_sleep(K_MSEC(2000));
+//         }
+    }
+// #else /* CONFIG_LIS2DH_TRIGGER */
