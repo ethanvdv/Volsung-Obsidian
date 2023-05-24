@@ -1,7 +1,9 @@
 #include <kernel.h>
 #include <device.h>
+#include <zephyr.h>
 #include <devicetree.h>
 #include <drivers/gpio.h>
+#include <drivers/sensor.h>
 
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
@@ -18,11 +20,23 @@
 #define SLEEP_TIME_MS                                                                   2000
 /* Connection thread sleep time */
 #define SHORT_SLEEP_MS                                                                  50
+
+#define DEVICE_NAME        CONFIG_BT_DEVICE_NAME
+#define DEVICE_NAME_LEN    (sizeof(DEVICE_NAME) - 1)
+#define SENSOR_BUFFER_SIZE 15
+
 /* Set LED pins */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
+static const struct bt_data sd[] = {
+    BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+};
+
 int16_t imu_accel_raw[] = {0x00, 0x00, 0x00};
 int16_t imu_gyro_raw[] = {0x00, 0x00, 0x00};
+int16_t sensor_read_buffer[SENSOR_BUFFER_SIZE];
+
+void sensor_broadcast();
 
 /* Set advertising data */
 static const struct bt_data ad[] = {
@@ -32,132 +46,68 @@ static const struct bt_data ad[] = {
                   0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd),
 };
 
-/* Stores the node rssi values */
-uint16_t node_rssi[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static void fetch_and_display(const struct device *sensor) {
+	static unsigned int count;
+	struct sensor_value accel[3];
+	struct sensor_value temperature;
+	const char *overrun = "";
+	int rc = sensor_sample_fetch(sensor);
 
-/* Custom Service Variables */
-static struct bt_uuid_128 mobile_uuid = BT_UUID_INIT_128(
-    0xd0, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
-    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
-
-static struct bt_uuid_128 imu_accel_uuid = BT_UUID_INIT_128(
-    0xd1, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
-    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
-
-static struct bt_uuid_128 imu_gyro_uuid = BT_UUID_INIT_128(
-    0xd2, 0x92, 0x67, 0x35, 0x78, 0x16, 0x21, 0x91,
-    0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd);
-
-/**
- * @brief Callback funtion to read sensor array data
- * 
- * @param conn connection handler
- * @param attr Attribute data/user data
- * @param buf Buffer storing the value
- * @param len Length of data
- * @param offset Data offset for multiple reads
- * @return ssize_t 0, to stop continous reads. 
- */
-static ssize_t read_sensor_array(struct bt_conn *conn,
-                                 const struct bt_gatt_attr *attr, void *buf,
-                                 uint16_t len, uint16_t offset) {
-    const int16_t *value = attr->user_data;
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, value,
-                             sizeof(imu_accel_raw));
-}
-
-//Helper Macro to define BLE Gatt Attributes based on CX UUIDS
-BT_GATT_SERVICE_DEFINE(mobile_svc,
-                       BT_GATT_PRIMARY_SERVICE(&mobile_uuid),
-                       BT_GATT_CHARACTERISTIC(&imu_accel_uuid.uuid,
-                                              BT_GATT_CHRC_READ,
-                                              BT_GATT_PERM_READ,
-                                              read_sensor_array, NULL, &imu_accel_raw),
-
-                       BT_GATT_CHARACTERISTIC(&imu_gyro_uuid.uuid,
-                                              BT_GATT_CHRC_READ,
-                                              BT_GATT_PERM_READ,
-                                              read_sensor_array, NULL, &imu_gyro_raw),
-);
-
-/**
- * @brief Passcode handler for accessing encrypted data
- * 
- * @param conn connection handler
- * @param passkey passkey
- */
-static void auth_passkey_display(struct bt_conn *conn, unsigned int passkey) {
-    char addr[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    printk("Passkey for %s: %06u\n", addr, passkey);
-}
-
-/**
- * @brief Authorisation cancelled handler
- * 
- * @param conn conenction handler
- */
-static void auth_cancel(struct bt_conn *conn) {
-    char addr[BT_ADDR_LE_STR_LEN];
-    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-    printk("Pairing cancelled: %s\n", addr);
-}
-
-
-/**
- * @brief Connection call back
- * 
- * @param conn conenction handler
- * @param err err val
- */
-static void connected(struct bt_conn *conn, uint8_t err) {
-    if (err) {
-        printk("Connection failed (err 0x%02x)\n", err);
-    }
-    else {
-        printk("BLE Connected to Device\n");
-        struct bt_le_conn_param *param = BT_LE_CONN_PARAM(6, 6, 0, 400);
-        if (bt_conn_le_param_update(conn, param) < 0) {
-            while (1) {
-                printk("Connection Update Error\n");
-                k_msleep(10);
-            }
+	++count;
+	if (rc == -EBADMSG) {
+		/* Sample overrun.  Ignore in polled mode. */
+		if (IS_ENABLED(CONFIG_LIS2DH_TRIGGER)) {
+			overrun = "[OVERRUN] ";
+		}
+		rc = 0;
+	}
+	if (rc == 0) {
+		rc = sensor_channel_get(sensor,
+					SENSOR_CHAN_ACCEL_XYZ,
+					accel);
+	}
+	if (rc < 0) {
+		printk("ERROR: Update failed: %d\n", rc);
+	} else {
+		printk("#%u @ %u ms: %sx %f , y %f , z %f",
+		       count, k_uptime_get_32(), overrun,
+		       sensor_value_to_double(&accel[0]),
+		       sensor_value_to_double(&accel[1]),
+		       sensor_value_to_double(&accel[2]));
+        float x_accel = (float)(sensor_value_to_double(&accel[0]));
+        float y_accel = (float)(sensor_value_to_double(&accel[1]));
+        float z_accel = (float)(sensor_value_to_double(&accel[2]));
+        uint8_t x_buff[4], y_buff[4], z_buff[4];
+        memcpy(x_buff, &x_accel, sizeof(float));
+        memcpy(y_buff, &y_accel, sizeof(float));
+        memcpy(z_buff, &z_accel, sizeof(float));
+        for (int i = 0; i < 4; i++) {
+            sensor_read_buffer[i + 2] = x_buff[i];
+            printk("%d\n", x_buff[i]);
         }
-    }
+        for (int i = 0; i < 4; i++) {
+            sensor_read_buffer[i + 6] = y_buff[i];
+        }
+        for (int i = 0; i < 4; i++) {
+            sensor_read_buffer[i + 10] = z_buff[i];
+        }
+        sensor_broadcast();
+	}
+
+	// if (IS_ENABLED(CONFIG_LIS2DH_MEASURE_TEMPERATURE)) {
+	// 	if (rc == 0) {
+	// 		rc = sensor_channel_get(sensor, SENSOR_CHAN_DIE_TEMP, &temperature);
+	// 		if (rc < 0) {
+	// 			printk("\nERROR: Unable to read temperature:%d\n", rc);
+	// 		} else {
+	// 			printk(", t %f\n", sensor_value_to_double(&temperature));
+	// 		}
+	// 	}
+
+	// } else {
+	// 	printk("\n");
+	// }
 }
-
-/**
- * @brief Disconnect Callback, used to keep track of connection status 
- *          in the application layer
- * 
- * @param conn connection handler
- * @param reason disconnect reason.
- */
-static void disconnected(struct bt_conn *conn, uint8_t reason) {
-    printk("Disconnected (reason 0x%02x)\n", reason);
-}
-
-/**
- * @brief Conn callback data structs, holds
- *          function pointers.
- * 
- */
-static struct bt_conn_cb conn_callbacks = {
-    .connected = connected,
-    .disconnected = disconnected,
-};
-
-/**
- * @brief Conn AUTH callback data structs, holds
- *          function pointers.
- * 
- */
-static struct bt_conn_auth_cb auth_cb_display = {
-    .passkey_display = auth_passkey_display,
-    .passkey_entry = NULL,
-    .cancel = auth_cancel,
-};
-
 
 /**
  * @brief Initialises bluetooth, and begins advertising data
@@ -166,33 +116,107 @@ static struct bt_conn_auth_cb auth_cb_display = {
  */
 static void bt_ready(void) {
     int err;
-    err = bt_enable(NULL);
-    if (err) {
-        printk("Bluetooth init failed (err %d)\n", err);
-        return;
-    }
+    bt_addr_le_t addr = {0};
+    size_t count = 1;
+    char addr_s[BT_ADDR_LE_STR_LEN];
     printk("Bluetooth initialized\n");
-    err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
+    err = bt_le_adv_start(
+        BT_LE_ADV_NCONN_IDENTITY, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
     if (err) {
         printk("Advertising failed to start (err %d)\n", err);
         return;
     }
+    bt_id_get(&addr, &count);
+    bt_addr_le_to_str(&addr, addr_s, sizeof(addr_s));
     printk("Advertising successfully started\n");
 }
+
+void sensor_broadcast() {
+    int err;
+
+    /** Construct BT data **/
+    const struct bt_data adNew[] = {
+        BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR),
+        BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0xaa, 0xfe),
+        BT_DATA_BYTES(BT_DATA_SVC_DATA16, sensor_read_buffer[0], sensor_read_buffer[1],
+            sensor_read_buffer[2], sensor_read_buffer[3], sensor_read_buffer[4], sensor_read_buffer[5],
+            sensor_read_buffer[6], sensor_read_buffer[7], sensor_read_buffer[8], sensor_read_buffer[9],
+            sensor_read_buffer[10], sensor_read_buffer[11], sensor_read_buffer[12],
+            sensor_read_buffer[13], sensor_read_buffer[14])};
+
+    /** Update info **/
+    err = bt_le_adv_update_data(adNew, ARRAY_SIZE(adNew), sd, ARRAY_SIZE(sd));
+    if (err) {
+        printk("We have encountered the error %d while trying to update "
+               "the ble data\r\n",
+            err);
+    }
+}
+
+#ifdef CONFIG_LIS2DH_TRIGGER
+static void trigger_handler(const struct device *dev,
+			    const struct sensor_trigger *trig)
+{
+	fetch_and_display(dev);
+}
+#endif
 
 /**
  * @brief Enabled bluetooth, and sets connection callback handler, awaits
  *          central to connect to peripheral (mobile)
  * 
  */
-void thread_ble_connect(void)
-{
-    bt_ready();
-    bt_conn_cb_register(&conn_callbacks);
-    bt_conn_auth_cb_register(&auth_cb_display);
-    while (1) {
-        k_msleep(SHORT_SLEEP_MS);
+void thread_ble_connect(void) {
+    const struct device *sensor = DEVICE_DT_GET_ANY(st_lis2dh);
+    if (sensor == NULL) {
+		printk("No device found\n");
+		return;
+	}
+	if (!device_is_ready(sensor)) {
+		printk("Device %s is not ready\n", sensor->name);
+		return;
+	}
+    int err = bt_enable(bt_ready);
+    if (err) {
+        printk("Bluetooth init failed (err %d)\n", err);
+        return;
     }
+#if CONFIG_LIS2DH_TRIGGER 
+    {
+		struct sensor_trigger trig;
+		int rc;
+		trig.type = SENSOR_TRIG_DATA_READY;
+		trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+		if (IS_ENABLED(CONFIG_LIS2DH_ODR_RUNTIME)) {
+			struct sensor_value odr = {
+				.val1 = 1,
+			};
+			rc = sensor_attr_set(sensor, trig.chan,
+					     SENSOR_ATTR_SAMPLING_FREQUENCY,
+					     &odr);
+			if (rc != 0) {
+				printf("Failed to set odr: %d\n", rc);
+				return;
+			}
+			printk("Sampling at %u Hz\n", odr.val1);
+		}
+		rc = sensor_trigger_set(sensor, &trig, trigger_handler);
+		if (rc != 0) {
+			printk("Failed to set trigger: %d\n", rc);
+			return;
+		}
+		printf("Waiting for triggers\n");
+		while (true) {
+			k_sleep(K_MSEC(2000));
+		}
+	}
+#else /* CONFIG_LIS2DH_TRIGGER */
+	printk("Polling at 0.5 Hz\n");
+	while (true) {
+		fetch_and_display(sensor);
+		k_sleep(K_MSEC(2000));
+	}
+#endif /* CONFIG_LIS2DH_TRIGGER */
 }
 
 /**

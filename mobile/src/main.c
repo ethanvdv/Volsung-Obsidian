@@ -24,7 +24,6 @@
 #include <sys/printk.h>
 
 #include "mobile_connect.h"
-#include "mobile_rssi.h"
 #include "mobile_imu.h"
 
 /*
@@ -34,11 +33,11 @@
 */
 
 /* Scan and Updating the rssi of nodes */
-K_THREAD_DEFINE(ble_scan, STACK_SIZE_BLE_SCAN, thread_ble_scan, NULL, NULL, NULL, THREAD_PRIORITY_BLE_SCAN, 0, 0);
-K_THREAD_DEFINE(ble_send, STACK_SIZE_BLE_SEND, thread_ble_send, NULL, NULL, NULL, THREAD_PRIORITY_BLE_SEND, 0, 10);
+//K_THREAD_DEFINE(ble_scan, STACK_SIZE_BLE_SCAN, thread_ble_scan, NULL, NULL, NULL, THREAD_PRIORITY_BLE_SCAN, 0, 0);
+//K_THREAD_DEFINE(ble_send, STACK_SIZE_BLE_SEND, thread_ble_send, NULL, NULL, NULL, THREAD_PRIORITY_BLE_SEND, 0, 10);
 /* Thingy LED blinking thread */
 K_THREAD_DEFINE(led_blink, THREAD_LED_THREAD_STACK, thread_led, NULL, NULL, NULL, THREAD_PRIORITY_LED_THREAD, 0, 50);
 /* Thingy RSSI scanner */
 K_THREAD_DEFINE(ble_connect, THREAD_BLE_CONNECT_STACK, thread_ble_connect, NULL, NULL, NULL, THREAD_PRIORITY_BLE_CONNECT_THREAD, 0, 0);
 /* Thingy IMU reader */
-K_THREAD_DEFINE(ble_imu, THREAD_IMU_RW_STACK, thread_imu_rw, NULL, NULL, NULL, THREAD_PRIORITY_IMU, 0, 100);
+//K_THREAD_DEFINE(ble_imu, THREAD_IMU_RW_STACK, thread_imu_rw, NULL, NULL, NULL, THREAD_PRIORITY_IMU, 0, 100);

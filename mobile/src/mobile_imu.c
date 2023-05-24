@@ -232,14 +232,12 @@ int begin(void) {
  */
 void printIMUData(void)
 {
-    imu_accel_raw[0] = ax + ACCEL_MODIFIER_X;
-    imu_accel_raw[1] = ay + ACCEL_MODIFIER_Y;
-    imu_accel_raw[2] = az + ACCEL_MODIFIER_Z;
-    imu_gyro_raw[0] = gx + GYRO_MODIFIER_X;
-    imu_gyro_raw[1] = gy + GYRO_MODIFIER_Y;
-    imu_gyro_raw[2] = gz + GYRO_MODIFIER_Z;
-    printk("Accelerometer aX: %d aY: %d aZ; %d\n", imu_accel_raw[0], imu_accel_raw[1], imu_accel_raw[2]);
-    printk("Gyroscope gX: %d gY: %d gZ; %d\n", imu_gyro_raw[0], imu_gyro_raw[1], imu_gyro_raw[2]);
+    imu_accel_raw[0] = ax;
+    imu_accel_raw[1] = ay;
+    imu_accel_raw[2] = az;
+    imu_gyro_raw[0] = gx;
+    imu_gyro_raw[1] = gy;
+    imu_gyro_raw[2] = gz;
 }
 
 /**
