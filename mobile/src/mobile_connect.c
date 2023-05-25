@@ -20,20 +20,21 @@
 #define SLEEP_TIME_MS                                                                   2000
 /* Connection thread sleep time */
 #define SHORT_SLEEP_MS                                                                  50
-
+/* Device information */
 #define DEVICE_NAME        CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN    (sizeof(DEVICE_NAME) - 1)
+/* Sensor value buffer */
 #define SENSOR_BUFFER_SIZE 15
 
 /* Set LED pins */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
+/* Set sub advertisement data */
 static const struct bt_data sd[] = {
     BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
 };
 
-int16_t imu_accel_raw[] = {0x00, 0x00, 0x00};
-int16_t imu_gyro_raw[] = {0x00, 0x00, 0x00};
+/* Sensor value buffer */
 int16_t sensor_read_buffer[SENSOR_BUFFER_SIZE];
 
 void sensor_broadcast();
@@ -46,16 +47,20 @@ static const struct bt_data ad[] = {
                   0x26, 0x49, 0x60, 0xeb, 0x06, 0xa7, 0xca, 0xcd),
 };
 
+/**
+ * @brief Takes a sensor and read its accelerometer values, then call BLE function to broadcast
+ * 
+ * @param sensor : device sensor to be read value off
+ * 
+ */
 static void fetch_and_display(const struct device *sensor) {
 	static unsigned int count;
 	struct sensor_value accel[3];
 	struct sensor_value temperature;
 	const char *overrun = "";
 	int rc = sensor_sample_fetch(sensor);
-
 	++count;
 	if (rc == -EBADMSG) {
-		/* Sample overrun.  Ignore in polled mode. */
 		if (IS_ENABLED(CONFIG_LIS2DH_TRIGGER)) {
 			overrun = "[OVERRUN] ";
 		}
@@ -93,25 +98,10 @@ static void fetch_and_display(const struct device *sensor) {
         }
         sensor_broadcast();
 	}
-
-	// if (IS_ENABLED(CONFIG_LIS2DH_MEASURE_TEMPERATURE)) {
-	// 	if (rc == 0) {
-	// 		rc = sensor_channel_get(sensor, SENSOR_CHAN_DIE_TEMP, &temperature);
-	// 		if (rc < 0) {
-	// 			printk("\nERROR: Unable to read temperature:%d\n", rc);
-	// 		} else {
-	// 			printk(", t %f\n", sensor_value_to_double(&temperature));
-	// 		}
-	// 	}
-
-	// } else {
-	// 	printk("\n");
-	// }
 }
 
 /**
- * @brief Initialises bluetooth, and begins advertising data
- *            on BLE.
+ * @brief Initialises bluetooth, and begins advertising data on BLE.
  * 
  */
 static void bt_ready(void) {
@@ -131,10 +121,12 @@ static void bt_ready(void) {
     printk("Advertising successfully started\n");
 }
 
+/**
+ * @brief Display sensor data using the sensor buffer. Display as advertisement
+ * 
+ */
 void sensor_broadcast() {
     int err;
-
-    /** Construct BT data **/
     const struct bt_data adNew[] = {
         BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR),
         BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0xaa, 0xfe),
@@ -143,8 +135,6 @@ void sensor_broadcast() {
             sensor_read_buffer[6], sensor_read_buffer[7], sensor_read_buffer[8], sensor_read_buffer[9],
             sensor_read_buffer[10], sensor_read_buffer[11], sensor_read_buffer[12],
             sensor_read_buffer[13], sensor_read_buffer[14])};
-
-    /** Update info **/
     err = bt_le_adv_update_data(adNew, ARRAY_SIZE(adNew), sd, ARRAY_SIZE(sd));
     if (err) {
         printk("We have encountered the error %d while trying to update "
@@ -153,6 +143,7 @@ void sensor_broadcast() {
     }
 }
 
+/* Config for sensor device */
 #ifdef CONFIG_LIS2DH_TRIGGER
 static void trigger_handler(const struct device *dev,
 			    const struct sensor_trigger *trig)
@@ -162,8 +153,7 @@ static void trigger_handler(const struct device *dev,
 #endif
 
 /**
- * @brief Enabled bluetooth, and sets connection callback handler, awaits
- *          central to connect to peripheral (mobile)
+ * @brief Enabled bluetooth and get sensor device. Call sensor to update values on repeat
  * 
  */
 void thread_ble_connect(void) {
@@ -210,13 +200,13 @@ void thread_ble_connect(void) {
 			k_sleep(K_MSEC(2000));
 		}
 	}
-#else /* CONFIG_LIS2DH_TRIGGER */
+#else
 	printk("Polling at 0.5 Hz\n");
 	while (true) {
 		fetch_and_display(sensor);
 		k_sleep(K_MSEC(2000));
 	}
-#endif /* CONFIG_LIS2DH_TRIGGER */
+#endif 
 }
 
 /**
