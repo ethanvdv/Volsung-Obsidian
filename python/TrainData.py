@@ -9,15 +9,19 @@ from playsound import playsound
 import threading
 from math import sqrt, atan, pi
 
-filename = input("Enter A Filename: ")
+filename = input("Enter A Filename: (enter 'd' for default)")
+if filename == 'd':
+    filename = "TrainingData"
+
 action = input("Enter Your Activity: ")
+
+
 dashinput = input("Would like to have data uploaded to the dash (Takes longer): ")
 if (dashinput == 'y' or dashinput == 'yes'):
     todash = True
 else: 
     todash = False
-duration = input(
-    "Enter How Many Seconds You Want To Collect Data For: ")
+duration = input("Enter How Many Seconds You Want To Collect Data For: ")
 
 dictArr = []
 
@@ -25,7 +29,7 @@ start = 0
 
 thingy1bool = False
 thingy2bool = False
-tempDictArr = np.empty(2, dtype=object)
+accelArrDict = np.empty(2, dtype=object)
 
 #Training Data
 my_device1 = tago.Device('7da25920-808a-45dc-96ed-8ce8a1e2556c')
@@ -117,11 +121,11 @@ def detection_callback(device, advertisement_data):
         print(advertisement_data.service_data)
         print(e)
     if device.name == "Thingy_1" and advertisement_data:
-        tempDictArr[0] = accelArr
+        accelArrDict[0] = accelArr
             # upload_to_dashboard(x, y, z, action)
         thingy1bool = True
     elif device.name == "Thingy" and advertisement_data:
-        tempDictArr[1] = accelArr
+        accelArrDict[1] = accelArr
         thingy2bool = True
     if thingy2bool and thingy1bool:
         percentage = ((time.time() - start)/float(duration))*100
@@ -129,15 +133,14 @@ def detection_callback(device, advertisement_data):
         if percentage > 100:
             percentage = 100.00
         print(f"Current Percentage {percentage}%")
-        trainData = {"Accelerometor_Data": [
-            tempDictArr[0], tempDictArr[1]], "Action": action}
+        trainData = {"Accelerometor_Data": [accelArrDict[0], accelArrDict[1]], "Action": action}
         dictArr.append(trainData)
         thingy1bool = False
         thingy2bool = False
         if todash:
-            # upload_to_dashboard(tempDictArr[0], tempDictArr[1], action[0])
+            #start dashboard upload thread
             uploadThread = threading.Thread(
-                target=upload_to_dashboard, args=(tempDictArr[0], tempDictArr[1], action[0]))
+                target=upload_to_dashboard, args=(accelArrDict[0], accelArrDict[1], action[0]))
             uploadThread.start()
 
 
@@ -156,6 +159,8 @@ write_data()
 playsound('bell.wav')
 print("Data has been successfully written to the file")
 
+
+#Note for setup:
 
 #"thingy" - leg, right pocket, light outwards. Sams top left.
 #"thingy1" - arm, light outwards top left

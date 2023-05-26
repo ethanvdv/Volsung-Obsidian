@@ -15,6 +15,7 @@ device = tago.Device('cd448ca0-221a-4433-9565-dcc2f77711c5')
 
 
 def upload_to_dashboard(arr1, arr2, action):
+    #do rounding for nice dash
     x = round(arr1[0],3)
     y = round(arr1[1],3)
     z = round(arr1[2],3)
@@ -97,33 +98,34 @@ def upload_to_dashboard(arr1, arr2, action):
     dictArr.append(data)
     result = device.insert(dictArr)
 
-# Addresses of our two thingies
+# Name of thingys
 thingy1Name = "Thingy_1"
 thingy2Name = "Thingy"
 
-# Booleans that keep track of current queue
+# Data received from device
 thingy1Bool = False
 thingy2Bool = False
 
 # Array used for holding values set in the asynchronous callback
-tempDictArr = np.empty(2, dtype=object)
+accelArrDict = np.empty(2, dtype=object)
 
 # Training Data
-df = pd.ExcelFile("TrainingData.xlsx")
+df = pd.read_csv("TrainingData.csv")
+
+
 # Parse Training Data
-dfs = df.parse()
-s = np.array((dfs['Accelerometor Data'].str.translate(
+values = np.array((df['Accelerometor Data'].str.translate(
     str.maketrans({'[': '', ']': ''})).tolist()))
 newArr = []
 
-for row in s:
+for row in values:
     t = row.split(',')
     t = np.array(t)
     t = t.astype(float)
     newArr.append(t)
 
 accelArr = np.array(newArr)
-actionArr = np.array(dfs['Action'])
+actionArr = np.array(df['Action'])
 
 # Create classifiers
 knn = KNeighborsClassifier(n_neighbors=3)
@@ -153,26 +155,26 @@ def detection_callback(device, advertisement_data):
         print(advertisement_data.service_data)
         print(e)
     if device.name == thingy1Name and advertisement_data.service_data:
-        tempDictArr[0] = accelArr
+        accelArrDict[0] = accelArr
         thingy1Bool = True
     elif device.name == thingy2Name and advertisement_data.service_data:
-        tempDictArr[1] = accelArr
+        accelArrDict[1] = accelArr
         thingy2Bool = True
     if thingy2Bool and thingy1Bool:
-        tempAccel = np.append(tempDictArr[0], tempDictArr[1])
-        action = knn.predict([tempAccel])
+        currentAccelData = np.append(accelArrDict[0], accelArrDict[1])
+        action = knn.predict([currentAccelData])
         print(action[0])
         thingy1Bool = False
         thingy2Bool = False
         uploadThread = threading.Thread(
-            target=upload_to_dashboard, args=(tempDictArr[0], tempDictArr[1], action[0]))
+            target=upload_to_dashboard, args=(accelArrDict[0], accelArrDict[1], action[0]))
         uploadThread.start()
 
 async def run():
     scanner = BleakScanner(detection_callback)
     while True:
         await scanner.start()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
         await scanner.stop()
 
 loop = asyncio.get_event_loop()
